@@ -1,0 +1,65 @@
+# ============================================================
+# Credit Risk Scoring — Configuration
+# ============================================================
+# This file centralises every tunable parameter so we never
+# hard-code "magic numbers" inside the source code.
+# In a real bank, this would be version-controlled separately
+# from the code and reviewed by Model Risk Management (MRM).
+# ============================================================
+
+data:
+  # Kaggle dataset identifier (used by kaggle CLI to download)
+  kaggle_dataset: "laotse/credit-risk-dataset"
+  raw_path: "data/raw/credit_risk_dataset.csv"
+  test_size: 0.2          # 80-20 train-test split
+  random_state: 42        # Reproducibility
+
+feature_engineering:
+  # Columns to apply Weight-of-Evidence (WoE) binning
+  woe_columns:
+    - "person_home_ownership"
+    - "loan_intent"
+    - "loan_grade"
+  # Numerical columns that get interaction features
+  interaction_pairs:
+    - ["loan_percent_income", "person_emp_length"]
+    - ["person_income", "loan_amnt"]
+
+model:
+  # LightGBM parameters (tuned for credit risk)
+  lightgbm:
+    n_estimators: 300
+    learning_rate: 0.05
+    max_depth: 6
+    num_leaves: 31
+    min_child_samples: 20
+    subsample: 0.8
+    colsample_bytree: 0.8
+    scale_pos_weight: 3     # Handle class imbalance
+    random_state: 42
+
+  # XGBoost parameters
+  xgboost:
+    n_estimators: 300
+    learning_rate: 0.05
+    max_depth: 6
+    min_child_weight: 5
+    subsample: 0.8
+    colsample_bytree: 0.8
+    scale_pos_weight: 3
+    random_state: 42
+
+scorecard:
+  base_score: 600         # Starting score (industry standard)
+  base_odds: 50           # Odds at base score (1:50 default rate)
+  pdo: 20                 # Points to Double the Odds
+
+api:
+  host: "0.0.0.0"
+  port: 8000
+
+paths:
+  model_dir: "models"
+  model_file: "models/credit_risk_model.joblib"
+  feature_names_file: "models/feature_names.joblib"
+  shap_explainer_file: "models/shap_explainer.joblib"
