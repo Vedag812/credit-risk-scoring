@@ -173,7 +173,6 @@ credit-risk-scoring/
 ├── config.yaml                   # centralized configuration
 ├── Dockerfile                    # container deployment
 ├── requirements.txt
-├── INTERVIEW_GUIDE.md
 └── README.md
 ```
 
