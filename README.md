@@ -1,7 +1,7 @@
 # Credit Risk Scoring System
 
 A full end-to-end ML pipeline for predicting loan defaults using LightGBM, with SHAP explainability, bias auditing, and a REST API for real-time scoring.
-
+ 
 ![Python](https://img.shields.io/badge/Python-3.11-blue?logo=python)
 ![LightGBM](https://img.shields.io/badge/LightGBM-4.5-green)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-teal?logo=fastapi)

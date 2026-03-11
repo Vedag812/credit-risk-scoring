@@ -1,15 +1,8 @@
 """
-streamlit_app.py — Interactive Credit Risk Scoring Dashboard
-==============================================================
+streamlit_app.py - interactive credit risk scoring dashboard
 
-Run:
-    streamlit run app/streamlit_app.py
-
-INTERVIEW TALKING POINT:
-    "I built a Streamlit dashboard so that a loan officer can input
-    an applicant's details and instantly see the risk score, SHAP
-    explanation, and approve/deny recommendation. This simulates
-    what a real bank's loan origination UI would look like."
+a loan officer can input an applicant's details and instantly
+see the risk score, SHAP explanation, and approve/deny decision.
 """
 
 import sys
@@ -31,14 +24,14 @@ from src.feature_engineering import (
 )
 from src.scorecard import probability_to_score, get_risk_category
 
-# ---- Page config ----
+# page config
 st.set_page_config(
     page_title="Credit Risk Scorer",
     page_icon="💳",
     layout="wide",
 )
 
-# ---- Custom CSS ----
+# custom CSS
 st.markdown("""
 <style>
     .main-header {
@@ -67,32 +60,22 @@ st.markdown("""
         font-weight: 800;
         margin: 0;
     }
-    .approve {
-        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-        border-radius: 12px;
-        padding: 1rem;
-        color: white;
-        text-align: center;
-        font-size: 1.5rem;
-        font-weight: 700;
-    }
-    .deny {
-        background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
-        border-radius: 12px;
-        padding: 1rem;
-        color: white;
-        text-align: center;
-        font-size: 1.5rem;
-        font-weight: 700;
-    }
 </style>
 """, unsafe_allow_html=True)
 
 
 @st.cache_resource
 def load_model_and_config():
-    """Load model artifacts (cached so it only runs once)."""
+    """Load model artifacts. If no model exists, train one automatically."""
     config = load_config()
+    model_path = config["paths"]["model_file"]
+    
+    # auto-train if model doesn't exist (needed for Streamlit Cloud)
+    if not os.path.exists(model_path):
+        st.info("No trained model found. Training now (this takes ~10 seconds on first run)...")
+        from src.pipeline import run_pipeline
+        run_pipeline()
+    
     try:
         mdl = joblib.load(config["paths"]["model_file"])
         feat_names = joblib.load(config["paths"]["feature_names_file"])
@@ -104,21 +87,21 @@ def load_model_and_config():
 
         return mdl, feat_names, explainer, config, True
     except Exception as e:
-        st.error(f"Model not found. Run `python -m src.pipeline` first.\n\nError: {e}")
+        st.error(f"Model loading failed: {e}")
         return None, None, None, config, False
 
 
 model, feature_names, shap_explainer, config, model_loaded = load_model_and_config()
 
-# ---- Header ----
+# header
 st.markdown('<p class="main-header">💳 Credit Risk Scoring System</p>', unsafe_allow_html=True)
-st.markdown('<p class="sub-header">Production-grade ML model with SHAP explainability</p>', unsafe_allow_html=True)
+st.markdown('<p class="sub-header">ML-powered credit scoring with SHAP explainability</p>', unsafe_allow_html=True)
 
 if not model_loaded:
     st.stop()
 
-# ---- Sidebar: Applicant Input ----
-st.sidebar.header("📋 Applicant Details")
+# sidebar: applicant input
+st.sidebar.header("Applicant Details")
 
 person_age = st.sidebar.slider("Age", 18, 80, 28)
 person_income = st.sidebar.number_input("Annual Income ($)", 10000, 500000, 65000, step=5000)
@@ -137,9 +120,9 @@ loan_percent_income = st.sidebar.slider("Loan % of Income", 0.0, 0.8, 0.18, step
 cb_default = st.sidebar.selectbox("Previous Default on File?", ["N", "Y"])
 cb_cred_hist = st.sidebar.slider("Credit History Length (years)", 1, 30, 6)
 
-# ---- Score button ----
-if st.sidebar.button("🔍 Score Applicant", type="primary", use_container_width=True):
-    # Build input
+# score button
+if st.sidebar.button("Score Applicant", type="primary", use_container_width=True):
+    # build input dataframe
     input_data = pd.DataFrame([{
         "person_age": person_age,
         "person_income": person_income,
@@ -154,7 +137,7 @@ if st.sidebar.button("🔍 Score Applicant", type="primary", use_container_width
         "cb_person_cred_hist_length": cb_cred_hist,
     }])
 
-    # Feature engineering
+    # apply same feature engineering as training
     input_data = create_financial_ratios(input_data)
     input_data = create_risk_buckets(input_data)
     interaction_pairs = config["feature_engineering"]["interaction_pairs"]
@@ -167,13 +150,13 @@ if st.sidebar.button("🔍 Score Applicant", type="primary", use_container_width
     input_data = input_data[feature_names]
     input_data = input_data.replace([np.inf, -np.inf], np.nan).fillna(0)
 
-    # Predict
+    # predict
     probability = float(model.predict_proba(input_data)[:, 1][0])
     credit_score = probability_to_score(probability, config)
     risk_category = get_risk_category(credit_score)
     decision = "APPROVE" if credit_score >= 650 else "DENY"
 
-    # ---- Display results ----
+    # display results
     col1, col2, col3 = st.columns(3)
 
     with col1:
@@ -195,7 +178,6 @@ if st.sidebar.button("🔍 Score Applicant", type="primary", use_container_width
         """, unsafe_allow_html=True)
 
     with col3:
-        css_class = "approve" if decision == "APPROVE" else "deny"
         emoji = "✅" if decision == "APPROVE" else "❌"
         st.markdown(f"""
         <div class="score-card">
@@ -205,9 +187,9 @@ if st.sidebar.button("🔍 Score Applicant", type="primary", use_container_width
         </div>
         """, unsafe_allow_html=True)
 
-    # ---- SHAP Explanation ----
+    # SHAP explanation
     st.markdown("---")
-    st.subheader("🔍 Why This Score? (SHAP Explanation)")
+    st.subheader("Why This Score?")
 
     if shap_explainer is not None:
         try:
@@ -222,11 +204,9 @@ if st.sidebar.button("🔍 Score Applicant", type="primary", use_container_width
 
             factors_df = pd.DataFrame(sorted_contrib, columns=["Feature", "SHAP Value"])
             factors_df["Direction"] = factors_df["SHAP Value"].apply(
-                lambda x: "↑ Increases Risk" if x > 0 else "↓ Decreases Risk"
+                lambda x: "Increases Risk" if x > 0 else "Decreases Risk"
             )
-            factors_df["Impact"] = factors_df["SHAP Value"].abs()
 
-            # Bar chart
             import plotly.express as px
             fig = px.bar(
                 factors_df,
@@ -234,10 +214,10 @@ if st.sidebar.button("🔍 Score Applicant", type="primary", use_container_width
                 orientation="h",
                 color="Direction",
                 color_discrete_map={
-                    "↑ Increases Risk": "#ef4444",
-                    "↓ Decreases Risk": "#22c55e"
+                    "Increases Risk": "#ef4444",
+                    "Decreases Risk": "#22c55e"
                 },
-                title="Top 10 Factors Influencing This Decision",
+                title="Top 10 Factors",
             )
             fig.update_layout(
                 yaxis=dict(autorange="reversed"),
@@ -249,10 +229,10 @@ if st.sidebar.button("🔍 Score Applicant", type="primary", use_container_width
         except Exception as e:
             st.warning(f"SHAP explanation unavailable: {e}")
     else:
-        st.info("SHAP explainer not loaded. Run the full pipeline to enable explanations.")
+        st.info("SHAP explainer not loaded. Run the pipeline to enable explanations.")
 
-    # ---- Applicant Summary ----
-    st.subheader("📋 Applicant Summary")
+    # applicant summary
+    st.subheader("Applicant Summary")
     summary_data = {
         "Age": person_age,
         "Income": f"${person_income:,.0f}",
@@ -273,16 +253,14 @@ if st.sidebar.button("🔍 Score Applicant", type="primary", use_container_width
         target_col.metric(k, v)
 
 else:
-    # Show instructions when page first loads
-    st.info("👈 Fill in the applicant details in the sidebar and click **Score Applicant**")
+    st.info("Fill in the applicant details in the sidebar and click **Score Applicant**")
     
-    # Show sample SHAP plot if it exists
     shap_plot_path = os.path.join(config["paths"]["model_dir"], "shap_global_importance.png")
     if os.path.exists(shap_plot_path):
-        st.subheader("📊 Global Feature Importance (from training)")
+        st.subheader("Global Feature Importance (from training)")
         st.image(shap_plot_path)
     
     fairness_plot_path = os.path.join(config["paths"]["model_dir"], "fairness_audit.png")
     if os.path.exists(fairness_plot_path):
-        st.subheader("⚖️ Fairness Audit Results")
+        st.subheader("Fairness Audit Results")
         st.image(fairness_plot_path)
