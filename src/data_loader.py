@@ -15,15 +15,35 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
-def load_config(config_path: str = "config.yaml") -> dict:
+def load_config(config_path: str = None) -> dict:
     """Load config from YAML.
     
     We keep all hyperparams and paths in config.yaml so nothing
     is hardcoded. In a real bank, config would be version-controlled
     separately so the model risk team can audit any parameter changes.
     """
+    # resolve project root (parent of src/)
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    
+    if config_path is None:
+        config_path = os.path.join(project_root, "config.yaml")
+    
     with open(config_path, "r") as f:
-        return yaml.safe_load(f)
+        config = yaml.safe_load(f)
+    
+    # make all relative paths absolute (relative to project root)
+    if "data" in config:
+        raw = config["data"].get("raw_path", "")
+        if raw and not os.path.isabs(raw):
+            config["data"]["raw_path"] = os.path.join(project_root, raw)
+    
+    if "paths" in config:
+        for key in config["paths"]:
+            val = config["paths"][key]
+            if isinstance(val, str) and not os.path.isabs(val):
+                config["paths"][key] = os.path.join(project_root, val)
+    
+    return config
 
 
 def download_dataset(config: dict) -> str:
@@ -36,6 +56,15 @@ def download_dataset(config: dict) -> str:
     
     os.makedirs(os.path.dirname(raw_path), exist_ok=True)
     
+    # check for kaggle credentials
+    user = os.getenv("KAGGLE_USERNAME")
+    key = os.getenv("KAGGLE_KEY")
+    
+    if not user or not key:
+        print("[INFO] Kaggle credentials not found in environment. Using fallback...")
+        _generate_synthetic_dataset(raw_path)
+        return raw_path
+
     try:
         import kaggle
         kaggle_dataset = config["data"]["kaggle_dataset"]
