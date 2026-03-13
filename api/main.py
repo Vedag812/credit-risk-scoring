@@ -10,12 +10,6 @@ Run:
     uvicorn api.main:app --reload --port 8000
     Then visit: http://localhost:8000/docs (Swagger UI)
 
-INTERVIEW TALKING POINT:
-    "I built a REST API so the credit risk model can be called by any
-    system — the loan origination system, a mobile app, or a web portal.
-    FastAPI auto-generates Swagger docs, which makes it easy for other
-    teams to integrate."
-"""
 
 import sys
 import os
