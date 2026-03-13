@@ -20,8 +20,6 @@ models/*.joblib
 models/*.pkl
 models/*.png
 
-# Interview prep (personal notes, don't push)
-INTERVIEW_GUIDE.md
 
 # IDE
 .vscode/
